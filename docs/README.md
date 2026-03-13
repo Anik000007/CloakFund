@@ -81,7 +81,7 @@ alice.eth
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/CloakFund.git
+git clone https://github.com/ankanmisra/cloakfund.git
 cd CloakFund
 
 # Backend (Rust)
