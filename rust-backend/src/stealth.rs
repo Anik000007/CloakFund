@@ -102,6 +102,15 @@ pub fn recover_stealth_private_key(
     // Parse recipient's private key
     let priv_bytes = hex::decode(recipient_priv_hex.trim_start_matches("0x"))
         .map_err(|e| format!("Invalid hex: {}", e))?;
+
+    // SecretKey parsing expects exactly 32 bytes; validate to prevent panics in lower-level crates.
+    if priv_bytes.len() != 32 {
+        return Err(format!(
+            "Invalid private key length: expected 32 bytes, got {}",
+            priv_bytes.len()
+        ));
+    }
+
     let recipient_priv = SecretKey::from_bytes((&priv_bytes[..]).into())
         .map_err(|e| format!("Invalid private key: {}", e))?;
 
@@ -146,7 +155,7 @@ mod tests {
         let recipient_priv = "0x1111111111111111111111111111111111111111111111111111111111111111";
         let recipient_pub = "0x034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa";
 
-        let (stealth_addr, ephem_pub, view_tag) = generate_stealth_address(recipient_pub).unwrap();
+        let (stealth_addr, ephem_pub, _view_tag) = generate_stealth_address(recipient_pub).unwrap();
         let recovered_priv = recover_stealth_private_key(recipient_priv, &ephem_pub).unwrap();
 
         // Verify recovered private key produces same stealth address
@@ -164,5 +173,28 @@ mod tests {
             stealth_addr.to_lowercase(),
             to_checksum_address(&derived_addr).to_lowercase()
         );
+    }
+
+    #[test]
+    fn test_generate_fails_on_invalid_recipient_pubkey() {
+        let bad_pub = "0x1234";
+        let res = generate_stealth_address(bad_pub);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_recover_fails_on_invalid_recipient_privkey() {
+        let bad_priv = "0x1234";
+        let ephem = "0x03f46d7511c5e2fdb5cc698dab27db5a34162d4a06c0b131c98af26e9ac5709a7b";
+        let res = recover_stealth_private_key(bad_priv, ephem);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_recover_fails_on_invalid_ephemeral_pubkey() {
+        let recipient_priv = "0x1111111111111111111111111111111111111111111111111111111111111111";
+        let bad_ephem = "0x1234";
+        let res = recover_stealth_private_key(recipient_priv, bad_ephem);
+        assert!(res.is_err());
     }
 }
